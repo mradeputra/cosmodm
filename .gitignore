@@ -1,0 +1,16 @@
+#dependencies
+/node_modules
+
+#testing
+/coverage
+
+#prod
+/build
+/dist
+
+#misc
+DS_Store
+package-lock.json
+/.vs
+/.vs/VSWorkspaceState.json
+/.vscode
