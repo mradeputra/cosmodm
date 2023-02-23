@@ -1,6 +1,6 @@
 import { CosmosClient, Container, FeedOptions } from "@azure/cosmos";
 import { ModelBase } from "./ModelBase";
-import { IDocumentDBRepository } from "./IDocumentDBRepository.base";
+import { IDocumentDBRepository } from "./IDocumentDBRepository";
 import { v4 as uuidv4 } from "uuid";
 import { OrderBy, toSql } from "./query";
 
@@ -150,48 +150,58 @@ export default class DocumentDBRepository<T extends ModelBase>
   }
 
   async GetAsync(options?: {
-    predicate?: any;
-    orderBy?: OrderBy<T>;
-    selector?: any;
-    usePaging?: boolean;
-    pageSize?: number;
-    partitionKey?: PartitionKey;
-    enableCrossPartition?: boolean;
+    predicate?: any
+    orderBy?: OrderBy<T>
+    selector?: any
+    usePaging?: boolean
+    pageSize?: number
+    partitionKey?: PartitionKey
+    enableCrossPartition?: boolean
   }): Promise<T[]> {
-    const container: Container = this._client
-      .database(this._databaseId)
-      .container(this._collectionId);
+    const container: Container = this._client.database(this._databaseId).container(this._collectionId)
     if (!options?.partitionKey && options) {
-      options.enableCrossPartition = true;
-      options.pageSize = 10;
+      options.enableCrossPartition = true
+      options.pageSize = 10
     }
 
-    const pk = options?.partitionKey
-      ? this._composePartitionKey(options.partitionKey)
-      : this._collectionId;
-    const maxItem = options?.partitionKey ? this._defaultPageSize : -1;
-    const maxCount = options?.usePaging ? options.pageSize : maxItem;
-    const pred =
-      options?.predicate && options ? options.predicate : (p: T) => true;
+    const pk = options?.partitionKey ? this._composePartitionKey(options.partitionKey) : undefined
+    const maxItem = options?.partitionKey ? this._defaultPageSize : -1
+    const maxCount = options?.usePaging ? options.pageSize : maxItem
+    const pred = options?.predicate && options ? options.predicate : (p: T) => true
     const feedOpts: FeedOptions = {
       maxItemCount: maxCount,
-      partitionKey: pk,
-    };
-
-    if (options?.usePaging && options.orderBy == null) {
-      options.orderBy = { property: "id", descending: false };
+      partitionKey: pk
     }
 
-    const [outputQuery, params] = toSql<T>(
-      pred,
-      options?.selector,
-      options?.orderBy
-    );
+    if (options?.usePaging && options.orderBy == null) {
+      options.orderBy = { property: 'id', descending: false }
+    }
 
-    const querySpec = { query: outputQuery, parameters: params };
-    const { resources } = await container.items
-      .query(querySpec, feedOpts)
-      .fetchAll();
-    return resources as T[];
+    const [outputQuery, params] = toSql<T>(pred, options?.selector, options?.orderBy)
+
+    const querySpec = { query: outputQuery, parameters: params }
+    const { resources } = await container.items.query(querySpec, feedOpts).fetchAll()
+    return resources as T[]
+  }
+
+  async CountAsync(options?: {
+    predicate?: any
+    partitionKey?: PartitionKey
+    enableCrossPartition?: boolean
+  }): Promise<number> {
+    const container: Container = this._client.database(this._databaseId).container(this._collectionId)
+    if (!options?.partitionKey && options) {
+      options.enableCrossPartition = true
+    }
+    const pk = options?.partitionKey ? this._composePartitionKey(options.partitionKey) : undefined
+    const pred: any = options?.predicate && options ? options.predicate : (p: T) => true
+    const feedOpts: FeedOptions = {
+      partitionKey: pk
+    }
+    const [outputQuery, params] = toSql<T>(pred, undefined, undefined, true)
+
+    const querySpec = { query: outputQuery, parameters: params }
+    const { resources } = await container.items.query(querySpec, feedOpts).fetchAll()
+    return resources[0].$1
   }
 }

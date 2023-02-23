@@ -116,38 +116,42 @@ class DocumentDBRepository {
     return updatedItem.resource;
   }
   async GetAsync(options) {
-    const container = this._client
-      .database(this._databaseId)
-      .container(this._collectionId);
-    if (!options?.partitionKey && options) {
-      options.enableCrossPartition = true;
-      options.pageSize = 10;
+        const container = this._client.database(this._databaseId).container(this._collectionId);
+        if (!options?.partitionKey && options) {
+            options.enableCrossPartition = true;
+            options.pageSize = 10;
+        }
+        const pk = options?.partitionKey ? this._composePartitionKey(options.partitionKey) : undefined;
+        const maxItem = options?.partitionKey ? this._defaultPageSize : -1;
+        const maxCount = options?.usePaging ? options.pageSize : maxItem;
+        const pred = options?.predicate && options ? options.predicate : (p) => true;
+        const feedOpts = {
+            maxItemCount: maxCount,
+            partitionKey: pk
+        };
+        if (options?.usePaging && options.orderBy == null) {
+            options.orderBy = { property: 'id', descending: false };
+        }
+        const [outputQuery, params] = (0, query_1.toSql)(pred, options?.selector, options?.orderBy);
+        const querySpec = { query: outputQuery, parameters: params };
+        const { resources } = await container.items.query(querySpec, feedOpts).fetchAll();
+        return resources;
     }
-    const pk = options?.partitionKey
-      ? this._composePartitionKey(options.partitionKey)
-      : this._collectionId;
-    const maxItem = options?.partitionKey ? this._defaultPageSize : -1;
-    const maxCount = options?.usePaging ? options.pageSize : maxItem;
-    const pred =
-      options?.predicate && options ? options.predicate : (p) => true;
-    const feedOpts = {
-      maxItemCount: maxCount,
-      partitionKey: pk,
-    };
-    if (options?.usePaging && options.orderBy == null) {
-      options.orderBy = { property: "id", descending: false };
+    async CountAsync(options) {
+        const container = this._client.database(this._databaseId).container(this._collectionId);
+        if (!options?.partitionKey && options) {
+            options.enableCrossPartition = true;
+        }
+        const pk = options?.partitionKey ? this._composePartitionKey(options.partitionKey) : undefined;
+        const pred = options?.predicate && options ? options.predicate : (p) => true;
+        const feedOpts = {
+            partitionKey: pk
+        };
+        const [outputQuery, params] = (0, query_1.toSql)(pred, undefined, undefined, true);
+        const querySpec = { query: outputQuery, parameters: params };
+        const { resources } = await container.items.query(querySpec, feedOpts).fetchAll();
+        return resources[0].$1;
     }
-    const [outputQuery, params] = (0, query_1.toSql)(
-      pred,
-      options?.selector,
-      options?.orderBy
-    );
-    const querySpec = { query: outputQuery, parameters: params };
-    const { resources } = await container.items
-      .query(querySpec, feedOpts)
-      .fetchAll();
-    return resources;
-  }
 }
 exports.default = DocumentDBRepository;
 //# sourceMappingURL=DocumentDBRepository.base.js.map
