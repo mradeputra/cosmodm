@@ -2,9 +2,9 @@
 
 Cosmodm is a module that provides a high-level abstraction layer for interacting with Azure Cosmos DB. The module includes a set of files that allow developers to easily create, read, update, and delete documents in their Cosmos DB collections.
 
-**modelBase.js** serves as a base class that other models can inherit from, providing a set of common methods and properties such as the ability to define custom validation rules for model data, and support for defining virtual properties. This base class helps in reducing code duplication and promotes code reuse across different models.
+**modelBase** serves as a base class that other models can inherit from, providing a set of common methods and properties such as the ability to define custom validation rules for model data, and support for defining virtual properties. This base class helps in reducing code duplication and promotes code reuse across different models.
 
-**DocumentDBRepository.js**, on the other hand, is a utility module that provides a set of methods for performing common CRUD (Create, Read, Update, Delete) operations on DocumentDB, as well as support for pagination, querying, and transactional consistency. This module helps to abstract away the complexity of working directly with DocumentDB's API, providing a simplified and consistent interface for accessing and manipulating data stored in the database.
+**DocumentDBRepository**, on the other hand, is a utility module that provides a set of methods for performing common CRUD (Create, Read, Update, Delete) operations on DocumentDB, as well as support for pagination, querying, and transactional consistency. This module helps to abstract away the complexity of working directly with DocumentDB's API, providing a simplified and consistent interface for accessing and manipulating data stored in the database.
 
 Together, these files provide a powerful set of tools for working with Cosmos DB, making it easier for developers to build scalable, performant, and reliable applications on the Azure platform.
 
@@ -18,6 +18,7 @@ The **ModelBase** class is a base class that can be extended to create models in
 
 To create a new model, extend the **ModelBase** class and add any additional properties and methods as needed. For example:
 
+**typescript**:
 ```js
 import { ModelBase } from "cosmodm";
 
@@ -31,6 +32,22 @@ class Person extends ModelBase {
   gender: string;
 }
 ```
+
+**javascript**:
+```js
+import { ModelBase } from "cosmodm";
+
+class Person extends ModelBase {
+  userName;
+
+  email;
+
+  password;
+
+  gender;
+}
+```
+
 
 The ModelBase class provides the following properties that can be accessed or set by the derived class:
 
@@ -60,8 +77,29 @@ This is a Node.js module that provides an interface for interacting with a Micro
 
 ### Usage
 
-To use this module, first create **unitOfWork.js** file and import the module into your code like this:
+To use this module, first create **unitOfWork** file and import the module into your code like this:
 
+**typescript**:
+```js
+import { DocumentDBRepository, IDocumentDBRepository } from "cosmodm";
+const DB = "MyDB";
+const client = new CosmosClient("your cosmosDB connection string");
+
+export default class UnitOfWork {
+  ModelRepository: IDocumentDBRepository<Model>;
+
+  constructor() {
+    this.ModelRepository = new DocumentDBRepository<Model>(
+      DB,
+      client,
+      new MyModel(),
+      partitionKeyProperties
+    );
+  }
+}
+```
+
+**javascript**:
 ```js
 import { DocumentDBRepository } from "cosmodm";
 const DB = "MyDB";
@@ -110,7 +148,7 @@ import UnitOfWork from "repositories";
 
 const unitOfWork = new UnitOfWork();
 const id = "12345";
-const partitionKey = "examplePartitionKey";
+const partitionKey = { email: "mail@example.com" };
 const document = await unitOfWork.ModelRepository.GetByIdAsync(
   id,
   partitionKey
@@ -143,7 +181,7 @@ import UnitOfWork from "repositories";
 
 const unitOfWork = new UnitOfWork();
 const id = "12345";
-const partitionKey = "examplePartitionKey";
+const partitionKey = { email: "mail@example.com" };
 const deleted = await unitOfWork.ModelRepository.DeleteAsync(id, partitionKey);
 ```
 
@@ -156,7 +194,7 @@ import UnitOfWork from "repositories";
 
 const unitOfWork = new UnitOfWork();
 const options = {
-  partitionKey: "examplePartitionKey",
+  partitionKey: { email: "mail@example.com" },
   usePaging: true,
   predicate: (item) => item.userName === "example",
   selector: ["userName"],
@@ -174,3 +212,25 @@ Where options is an object that contains the following properties:
 - selector (optional) - A string or array of an object properties to desired. (**keyof Model** or **Array[keyof Model]**)
 - orderBy (optional) - An object that specifies the property to sort by and whether to sort in ascending or descending order.
 - pageSize (optional) - The maximum number of items to return per page.
+
+#### **Count documents**
+
+To count documents, call the **CountAsync** method:
+
+```js
+import UnitOfWork from "repositories";
+
+const unitOfWork = new UnitOfWork();
+const options = {
+  partitionKey: { email: "mail@example.com" },
+  predicate: (item) => item.userName === "example",
+  enableCrossPartition: false
+};
+const documents = await unitOfWork.Modelrepository.CountAsync(options);
+```
+
+Where options is an object that contains the following properties:
+
+- partitionKey (optional) - The partition key to use for the query.
+- predicate (optional) - A function that returns a boolean indicating whether or not an item should be included in the query results.
+- enableCrossPartition (optional) - flag to query all of documents partition.
